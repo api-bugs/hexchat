@@ -157,7 +157,6 @@ static char * gtk_xtext_get_word (GtkXText * xtext, int x, int y, textentry ** r
 #define EMPH_BOLD 2
 #define EMPH_HIDDEN 4
 static PangoAttrList *attr_lists[4];
-static int fontwidths[4][128];
 
 static PangoAttribute *
 xtext_pango_attr (PangoAttribute *attr)
@@ -170,8 +169,7 @@ xtext_pango_attr (PangoAttribute *attr)
 static void
 xtext_pango_init (GtkXText *xtext)
 {
-	int i, j;
-	char buf[2] = "\000";
+	int i;
 
 	if (attr_lists[0])
 	{
@@ -201,17 +199,10 @@ xtext_pango_init (GtkXText *xtext)
 				xtext_pango_attr (pango_attr_weight_new (PANGO_WEIGHT_BOLD)));
 			break;
 		}
-
-		/* Now initialize fontwidths[i] */
-		pango_layout_set_attributes (xtext->layout, attr_lists[i]);
-		for (j = 0; j < 128; j++)
-		{
-			buf[0] = j;
-			pango_layout_set_text (xtext->layout, buf, 1);
-			pango_layout_get_pixel_size (xtext->layout, &fontwidths[i][j], NULL);
-		}
 	}
-	xtext->space_width = fontwidths[0][' '];
+	pango_layout_set_attributes (xtext->layout, attr_lists[0]);
+	pango_layout_set_text (xtext->layout, " ", 1);
+	pango_layout_get_pixel_size (xtext->layout, &xtext->space_width, NULL);
 }
 
 static void
@@ -289,8 +280,6 @@ static int
 backend_get_text_width_emph (GtkXText *xtext, guchar *str, int len, int emphasis)
 {
 	int width;
-	int deltaw;
-	int mbl;
 
 	if (*str == 0)
 		return 0;
@@ -299,22 +288,9 @@ backend_get_text_width_emph (GtkXText *xtext, guchar *str, int len, int emphasis
 		return 0;
 	emphasis &= (EMPH_ITAL | EMPH_BOLD);
 
-	width = 0;
 	pango_layout_set_attributes (xtext->layout, attr_lists[emphasis]);
-	while (len > 0)
-	{
-		mbl = charlen(str);
-		if (*str < 128)
-			deltaw = fontwidths[emphasis][*str];
-		else
-		{
-			pango_layout_set_text (xtext->layout, str, mbl);
-			pango_layout_get_pixel_size (xtext->layout, &deltaw, NULL);
-		}
-		width += deltaw;
-		str += mbl;
-		len -= mbl;
-	}
+	pango_layout_set_text (xtext->layout, str, len);
+	pango_layout_get_pixel_size (xtext->layout, &width, NULL);
 
 	return width;
 }
